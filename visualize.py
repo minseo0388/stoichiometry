@@ -1,12 +1,41 @@
-# visualize.py
-# This module provides functions to visualize the results of chemical reaction simulations.
-# It includes plotting the concentration changes over time and the Arrhenius plot for rate constants.
+"""
+visualize.py - Chemical Reaction Visualization Module
+
+This module provides advanced visualization tools for chemical reaction simulations:
+1. Dynamic concentration plots over time
+2. Arrhenius plots for temperature dependence
+3. Interactive animations of reaction progress
+
+For Students & Researchers:
+- Real-time visualization of reaction progress
+- Clear representation of concentration changes
+- Temperature-dependent rate constant analysis
+- Publication-quality figures with proper labeling
+"""
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
+from typing import Dict, Any
+import pandas as pd
 
-def plot_results(df, title="Dynamic Chemical Reaction Simulation"):
+def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simulation") -> None:
+    """
+    Create an animated plot of species concentrations over time.
+    
+    Args:
+        df: DataFrame containing time series data:
+            - 'Time' column for time points
+            - '[Species]' columns for concentrations
+        title: Title for the plot (default: "Dynamic Chemical Reaction Simulation")
+        
+    Note:
+        - Creates an interactive animation
+        - X-axis: Time
+        - Y-axis: Concentration
+        - Each species is plotted in a different color
+        - Legend identifies each species
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
     lines = {}
 
@@ -37,9 +66,27 @@ def plot_results(df, title="Dynamic Chemical Reaction Simulation"):
     plt.tight_layout()
     plt.show()
 
-def plot_k_vs_temp(k_vals, Ea):
-    R = 8.314
-    temps = np.linspace(250, 500, 100)
+def plot_k_vs_temp(k_vals: list, Ea: float) -> None:
+    """
+    Create an Arrhenius plot showing rate constants vs temperature.
+    
+    Args:
+        k_vals: List of rate constants at reference temperature
+        Ea: Activation energy (J/mol)
+        
+    Note:
+        - Demonstrates temperature dependence of rate constants
+        - Uses Arrhenius equation: k(T) = k₀exp(-Ea/RT)
+        - Temperature range: 250-500K
+        - Plots multiple rate constants if provided
+        
+    Educational Value:
+        - Visualize how rate constants change with temperature
+        - Understand the exponential nature of the Arrhenius equation
+        - Compare different rate constants' temperature dependence
+    """
+    R = 8.314  # Universal gas constant (J/mol·K)
+    temps = np.linspace(250, 500, 100)  # Temperature range in Kelvin
     plt.figure()
 
     for idx, k0 in enumerate(k_vals):

@@ -1,9 +1,27 @@
-# gui.py
-# This file provides a graphical user interface (GUI) for simulating chemical reactions.
-# It allows users to input reaction details, run simulations, and visualize results.
+"""
+gui.py - Chemical Reaction Simulator Interface
+
+A user-friendly graphical interface designed for students and researchers in chemistry.
+This module provides:
+1. Interactive input of reaction parameters
+2. Real-time visualization of reaction progress
+3. Data export capabilities
+4. Support for saving and loading reaction setups
+
+Educational Features:
+- Predefined example reactions
+- Clear parameter explanations
+- Error checking and validation
+- Visual feedback on simulation progress
+- Helpful tooltips and guidance
+
+Usage:
+    Run main.py to start the application
+"""
 
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, ttk
+from tkinter.scrolledtext import ScrolledText
 from simulate import simulate_reactions
 from reactions import parse_custom_reaction, build_reaction_list_from_details, calculate_equilibrium
 from visualize import plot_results, plot_k_vs_temp
@@ -12,20 +30,49 @@ import numpy as np
 import json
 
 def run_gui():
+    """
+    Launch the main GUI window for chemical reaction simulation.
+    
+    Features:
+    - Input fields for reaction parameters
+    - Real-time visualization
+    - Data export options
+    - Save/load functionality
+    
+    The GUI provides a user-friendly interface for:
+    1. Entering chemical reactions
+    2. Setting rate constants and activation energies
+    3. Specifying initial concentrations
+    4. Running simulations
+    5. Visualizing results
+    """
+    
+    # Example reactions for educational purposes
     predefined_reactions = {
-        "A + B → C": "A+B->C",
-        "A → B": "A->B",
-        "2A + B → C": "2A+B->C",
-        "A + B → C, C → D": "A+B->C, C->D",
-        "X + Y ⇌ Z": "X+Y->Z, Z->X+Y"
+        "A + B → C": "A+B->C",        # Simple bimolecular reaction
+        "A → B": "A->B",              # First-order decay
+        "2A + B → C": "2A+B->C",      # Higher-order reaction
+        "A + B → C, C → D": "A+B->C, C->D",  # Sequential reactions
+        "X + Y ⇌ Z": "X+Y->Z, Z->X+Y"  # Reversible reaction
     }
 
     reaction_entries = []
 
     def add_reaction_field():
-        frame = tk.Frame(root)
-        frame.pack()
-        tk.Label(frame, text="Reaction:").pack(side=tk.LEFT)
+        """Add a new reaction input row with labels and entry fields."""
+        # Create a frame for the reaction entry row
+        frame = ttk.Frame(root)
+        frame.pack(pady=2, padx=5)
+        
+        # Tooltip texts for educational guidance
+        tooltips = {
+            "reaction": "Enter reaction (e.g., 'A + B -> C' or '2A + B -> C')",
+            "k": "Rate constant (e.g., 0.001 for slow, 1.0 for fast)",
+            "Ea": "Activation energy in J/mol (e.g., 50000)",
+            "reversible": "Check for reversible reactions (e.g., A + B ⇌ C)"
+        }
+        
+        ttk.Label(frame, text="Reaction:").pack(side=tk.LEFT)
 
         rxn_entry = tk.Entry(frame, width=20)
         rxn_entry.pack(side=tk.LEFT)

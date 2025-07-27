@@ -1,15 +1,74 @@
-# simulate.py
-# This module provides a function to simulate chemical reactions over time.
-# It calculates the concentrations of species based on reaction kinetics and returns a DataFrame with the results.
+"""
+simulate.py - Chemical Reaction Kinetics Simulator
+
+This module implements numerical simulation of chemical reactions using:
+1. Rate equations for concentration changes
+2. Arrhenius equation for temperature dependence
+3. Mass action kinetics for reaction rates
+4. Euler integration for time evolution
+
+Educational Features:
+- Clear implementation of chemical kinetics principles
+- Step-by-step calculation of reaction rates
+- Support for complex reaction networks
+- Temperature-dependent rate constants
+
+Theory Background:
+- Rate Law: d[A]/dt = -k[A]ᵃ[B]ᵇ
+- Arrhenius Equation: k = A*exp(-Ea/RT)
+- Mass Action: rate = k∏[reactant]ⁿ
+- Conservation of Mass
+
+Author: minseo0388
+License: MIT
+"""
 
 import numpy as np
 import pandas as pd
 import math
+from typing import List, Dict, Tuple, Optional
 
-def simulate_reactions(species, reactions, initials, dt, t_max, temperature=298.15, Ea_list=None, Ea_rev_list=None):
-    R = 8.314
+def simulate_reactions(
+    species: List[str],
+    reactions: List[Tuple],
+    initials: Dict[str, float],
+    dt: float,
+    t_max: float,
+    temperature: float = 298.15,
+    Ea_list: Optional[List[float]] = None,
+    Ea_rev_list: Optional[List[float]] = None
+) -> pd.DataFrame:
+    """
+    Simulate chemical reactions over time using numerical integration.
+    
+    Args:
+        species: List of chemical species involved
+        reactions: List of (reactants, products, k, reversible, kr) tuples
+        initials: Initial concentrations (mol/L)
+        dt: Time step for integration (s)
+        t_max: Total simulation time (s)
+        temperature: Reaction temperature (K)
+        Ea_list: Activation energies for forward reactions (J/mol)
+        Ea_rev_list: Activation energies for reverse reactions (J/mol)
+    
+    Returns:
+        DataFrame with time series of concentrations
+        
+    Theory:
+        - Uses Euler integration: [A]_new = [A]_old + (d[A]/dt)Δt
+        - Rates from mass action: rate = k[A]ᵃ[B]ᵇ
+        - Temperature dependence: k(T) = k₀exp(-Ea/RT)
+        
+    Example:
+        >>> species = ['A', 'B', 'C']
+        >>> reactions = [(['A', 'B'], ['C'], 0.001, True, 0.0001)]
+        >>> initials = {'A': 1.0, 'B': 1.0, 'C': 0.0}
+        >>> df = simulate_reactions(species, reactions, initials, 0.1, 10)
+    """
+    R = 8.314  # Universal gas constant (J/mol·K)
 
-    def get_stoich(species_list):
+    def get_stoich(species_list: List[str]) -> Dict[str, int]:
+        """Calculate stoichiometric coefficients for a list of species."""
         counts = {}
         for s in species_list:
             counts[s] = counts.get(s, 0) + 1
