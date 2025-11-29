@@ -79,14 +79,25 @@ def simulate_reactions(
 
     for _ in time[1:]:
         delta = {s: 0.0 for s in species}
-        for i, (reactants, products, k, reversible, kr) in enumerate(reactions):
+        for i, (reactants, products, k_ref, reversible, kr_ref) in enumerate(reactions):
             reactant_counts = get_stoich(reactants)
             product_counts = get_stoich(products)
             Ea_i = Ea_list[i] if Ea_list else 50000
             Ea_rev_i = Ea_rev_list[i] if Ea_rev_list else 50000
 
-            k_T = k * math.exp(-Ea_i / (R * temperature))
-            kr_T = kr * math.exp(-Ea_rev_i / (R * temperature)) if reversible else 0.0
+            # Arrhenius equation relative to reference temperature (298.15 K)
+            # k(T) = k_ref * exp((Ea/R) * (1/T_ref - 1/T))
+            T_ref = 298.15
+            
+            # Avoid division by zero if T is 0 (unlikely but safe)
+            if temperature <= 0: temperature = 1e-10
+            
+            k_T = k_ref * math.exp((Ea_i / R) * (1/T_ref - 1/temperature))
+            
+            if reversible:
+                kr_T = kr_ref * math.exp((Ea_rev_i / R) * (1/T_ref - 1/temperature))
+            else:
+                kr_T = 0.0
 
             rate_fwd = k_T * np.prod([data[r][-1] ** reactant_counts[r] for r in reactant_counts])
             rate_rev = kr_T * np.prod([data[p][-1] ** product_counts[p] for p in product_counts]) if reversible else 0.0

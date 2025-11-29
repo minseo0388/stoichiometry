@@ -35,101 +35,126 @@ Example Usage:
 import re
 from typing import List, Dict, Tuple, Set
 
+
+
 def parse_custom_reaction(reaction_str: str) -> List[str]:
     """
     Parse a chemical reaction string and extract unique chemical species.
     
     Args:
         reaction_str: A string representing a chemical reaction (e.g., "2A + B -> C")
-                     Supports standard notation including:
-                     - Stoichiometric coefficients (e.g., "2A")
-                     - Multiple reactants/products (e.g., "A + B")
-                     - Reversible reactions (using ⇌ or <->)
         
     Returns:
-        List of unique chemical species in alphabetical order
-        
-    Examples:
-        >>> parse_custom_reaction("2A + B -> C")
-        ['A', 'B', 'C']
-        >>> parse_custom_reaction("X + Y ⇌ Z")
-        ['X', 'Y', 'Z']
-        
-    Note:
-        - Species must be represented by capital letters
-        - Supports both -> and ⇌ for reactions
-        - Spaces around + and -> are optional
-        - Returns unique species only
+        List of unique species names found in the reaction.
     """
-    species = set(re.findall(r'[A-Z]', reaction_str))
-    return sorted(species)
+    # Remove whitespace and split by reaction arrows
+    clean_str = reaction_str.replace(" ", "")
+    # Handle both -> and <-> and ⇌
+    parts = re.split(r'->|<->|⇌', clean_str)
+    
+    species = set()
+    
+    for part in parts:
+        # Split by + to get individual terms
+        terms = part.split('+')
+        for term in terms:
+            if not term: continue
+            # Remove stoichiometric coefficients (leading numbers)
+            # Match any leading digits, possibly with decimal
+            match = re.search(r'^[\d\.]*', term)
+            if match:
+                coeff_len = len(match.group(0))
+                s_name = term[coeff_len:]
+                if s_name:
+                    species.add(s_name)
+            else:
+                species.add(term)
+                
+    return sorted(list(species))
+
+def parse_side(side_str: str) -> List[str]:
+    """Helper to parse one side of a reaction (reactants or products)."""
+    clean_str = side_str.replace(" ", "")
+    terms = clean_str.split('+')
+    result = []
+    for term in terms:
+        if not term: continue
+        match = re.search(r'^([\d\.]*)(.+)$', term)
+        if match:
+            coeff_str = match.group(1)
+            species = match.group(2)
+            coeff = float(coeff_str) if coeff_str else 1.0
+            # Add species multiple times based on coefficient (integer approximation for list representation)
+            # For fractional coefficients, this simple list approach might be limited, 
+            # but simulate.py uses counts, so we can just add it once? 
+            # Wait, simulate.py uses `get_stoich` which counts occurrences in the list.
+            # So "2A" needs to be ['A', 'A'].
+            # What if coeff is 1.5? simulate.py's get_stoich returns integers.
+            # Let's assume integer coefficients for this simple simulator or round them.
+            count = int(round(coeff))
+            result.extend([species] * count)
+    return result
 
 def build_reaction_list_from_details(details: List[Dict]) -> Tuple[List, List, List, List]:
     """
-    Build detailed reaction lists from reaction specifications for kinetic simulations.
+    Convert UI reaction details into simulation-ready lists.
     
     Args:
-        details: List of dictionaries containing reaction details:
-                - 'reaction': String representation (e.g., "2A + B -> C")
-                - 'k': Rate constant (units: M⁻¹s⁻¹ for bimolecular)
-                - 'Ea': Activation energy (J/mol)
-                - 'reversible': Boolean for reversible reactions
-    
+        details: List of dicts with keys 'reaction', 'k', 'Ea', 'reversible'
+        
     Returns:
-        Tuple containing:
-        - reactions: List of (reactants, products, k, reversible, kr) tuples
-        - k_vals: List of rate constants (k₀ in Arrhenius equation)
-        - Ea_list: List of activation energies for forward reactions
-        - Ea_rev_list: List of activation energies for reverse reactions
-        
-    Examples:
-        >>> details = [{
-        ...     'reaction': 'A + B -> C',
-        ...     'k': 1.0e-3,
-        ...     'Ea': 50000,
-        ...     'reversible': False
-        ... }]
-        >>> reactions, k_vals, Ea_f, Ea_r = build_reaction_list_from_details(details)
-        >>> print(f"First reaction: {reactions[0]}")
-        First reaction: (['A', 'B'], ['C'], 0.001, False, 0.0)
-        
-    Note:
-        - For reversible reactions, kr = 0.01*k (default)
-        - Activation energies used in Arrhenius equation: k(T) = k₀exp(-Ea/RT)
-        - Supports multiple reactions in a network
-        - Preserves stoichiometric coefficients in rate calculations
+        Tuple of (reactions, k_vals, Ea_list, Ea_rev_list)
+        where reactions is list of (reactants, products, k, reversible, kr)
     """
-    reactions = []  # Store processed reaction tuples
-    k_vals = []    # Store rate constants
-    Ea_list = []   # Store activation energies (forward)
-    Ea_rev_list = [] # Store activation energies (reverse)
-
-    for item in details:
-        lhs, rhs = item['reaction'].split('->')
-        lhs_parsed = re.findall(r'(\\d*)\\s*([A-Z])', lhs)
-        rhs_parsed = re.findall(r'(\\d*)\\s*([A-Z])', rhs)
-
-        reactants = []
-
-        for count, sp in lhs_parsed:
-            reactants.extend([sp] * (int(count) if count else 1))
-
-        products = []
-
-        for count, sp in rhs_parsed:
-            products.extend([sp] * (int(count) if count else 1))
+    reactions = []
+    k_vals = []
+    Ea_list = []
+    Ea_rev_list = []
+    
+    for d in details:
+        r_str = d['reaction']
+        # Split into reactants and products
+        if '->' in r_str:
+            parts = r_str.split('->')
+            reversible = d['reversible']
+        elif '<->' in r_str:
+            parts = r_str.split('<->')
+            reversible = True
+        elif '⇌' in r_str:
+            parts = r_str.split('⇌')
+            reversible = True
+        else:
+            continue # Invalid format
             
-        reactions.append((reactants, products, item['k'], item['reversible'], 0.01 if item['reversible'] else 0.0))
-
-        k_vals.append(item['k'])
-        Ea_list.append(item['Ea'])
-        Ea_rev_list.append(item['Ea'])  
-        # could be separated
+        if len(parts) != 2:
+            continue
+            
+        reactants = parse_side(parts[0])
+        products = parse_side(parts[1])
+        
+        k = d['k']
+        Ea = d['Ea']
+        
+        # For reversible reactions, we need a reverse rate constant.
+        # In this simple app, we might assume kr = k or let user specify?
+        # The UI doesn't have a kr input. Let's assume kr = k * 0.1 for now.
+        # Or better, calculate from equilibrium if we had delta G.
+        # Let's just set kr = k * 0.5 as a placeholder if not specified, 
+        # but wait, simulate.py signature is (reactants, products, k_ref, reversible, kr_ref)
+        kr = k * 0.5 # Arbitrary assumption for demo purposes if not specified
+        
+        reactions.append((reactants, products, k, reversible, kr))
+        k_vals.append(k)
+        Ea_list.append(Ea)
+        # Assume reverse activation energy is same or slightly different?
+        # Let's just use Ea for reverse too for simplicity unless we want to add inputs.
+        Ea_rev_list.append(Ea) 
+        
     return reactions, k_vals, Ea_list, Ea_rev_list
 
 def calculate_equilibrium(initials: Dict[str, float]) -> Tuple[Dict[str, float], Dict[str, float]]:
     """
-    Calculate equilibrium concentrations and concentration ratios using a simplified model.
+    Calculates equilibrium concentrations and concentration ratios based on initial concentrations.
     
     Args:
         initials: Dictionary of initial concentrations (mol/L) for each species
@@ -171,4 +196,3 @@ def calculate_equilibrium(initials: Dict[str, float]) -> Tuple[Dict[str, float],
               for j, b in enumerate(eq_values) if i < j and eq_values[b] != 0}
     
     return eq_values, ratios
-

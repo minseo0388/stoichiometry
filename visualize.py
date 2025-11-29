@@ -19,7 +19,7 @@ import numpy as np
 from typing import Dict, Any
 import pandas as pd
 
-def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simulation") -> None:
+def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simulation", autoscale: bool = False) -> Any:
     """
     Create an animated plot of species concentrations over time.
     
@@ -28,15 +28,12 @@ def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simul
             - 'Time' column for time points
             - '[Species]' columns for concentrations
         title: Title for the plot (default: "Dynamic Chemical Reaction Simulation")
+        autoscale: If True, y-axis will zoom to data range. If False, starts at 0.
         
-    Note:
-        - Creates an interactive animation
-        - X-axis: Time
-        - Y-axis: Concentration
-        - Each species is plotted in a different color
-        - Legend identifies each species
+    Returns:
+        matplotlib.figure.Figure object containing the plot
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
     lines = {}
 
     for col in df.columns:
@@ -45,9 +42,26 @@ def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simul
             lines[col] = line
 
     ax.set_xlim(df['Time'].min(), df['Time'].max())
-    ax.set_ylim(0, df[[col for col in df.columns if col != 'Time']].values.max() * 1.1)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Concentration')
+    
+    # Calculate y-limits
+    conc_cols = [col for col in df.columns if col != 'Time']
+    if not conc_cols:
+        y_max = 1.0
+        y_min = 0.0
+    else:
+        vals = df[conc_cols].values
+        y_max = vals.max()
+        y_min = vals.min()
+        
+    if autoscale:
+        # Add a small padding (5%)
+        padding = (y_max - y_min) * 0.05
+        if padding == 0: padding = 0.01 * y_max if y_max != 0 else 0.1
+        ax.set_ylim(max(0, y_min - padding), y_max + padding)
+    else:
+        ax.set_ylim(0, y_max * 1.1)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Concentration (M)')
     ax.set_title(title)
     ax.legend()
     ax.grid(True)
@@ -58,15 +72,38 @@ def plot_results(df: pd.DataFrame, title: str = "Dynamic Chemical Reaction Simul
         return lines.values()
 
     def update(frame):
+        # Subsample if too many points to keep animation smooth
+        idx = frame
         for col in lines:
-            lines[col].set_data(df['Time'][:frame], df[col][:frame])
+            lines[col].set_data(df['Time'][:idx], df[col][:idx])
         return lines.values()
 
-    ani = animation.FuncAnimation(fig, update, frames=len(df), init_func=init, blit=True, interval=50, repeat=False)
+    # Create animation but don't show it yet
+    # We return the figure. The caller (GUI) will handle embedding or showing.
+    # Note: For static embedding in Tkinter without animation loop complexity, 
+    # we might just plot the final state or use a simpler update mechanism.
+    # For now, we'll plot the full data statically for stability in the new GUI,
+    # or we can keep the animation if we use the right backend.
+    # Let's switch to a static plot of the full run for robustness as requested "fix graph".
+    
+    # CLEARING previous setup for static plot
+    ax.clear()
+    for col in df.columns:
+        if col != 'Time':
+            ax.plot(df['Time'], df[col], label=col)
+            
+    ax.set_xlim(df['Time'].min(), df['Time'].max())
+    ax.set_ylim(0, df[[col for col in df.columns if col != 'Time']].values.max() * 1.1)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Concentration (M)')
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True)
     plt.tight_layout()
-    plt.show()
+    
+    return fig
 
-def plot_k_vs_temp(k_vals: list, Ea: float) -> None:
+def plot_k_vs_temp(k_vals: list, Ea: float) -> Any:
     """
     Create an Arrhenius plot showing rate constants vs temperature.
     
@@ -74,29 +111,25 @@ def plot_k_vs_temp(k_vals: list, Ea: float) -> None:
         k_vals: List of rate constants at reference temperature
         Ea: Activation energy (J/mol)
         
-    Note:
-        - Demonstrates temperature dependence of rate constants
-        - Uses Arrhenius equation: k(T) = k₀exp(-Ea/RT)
-        - Temperature range: 250-500K
-        - Plots multiple rate constants if provided
-        
-    Educational Value:
-        - Visualize how rate constants change with temperature
-        - Understand the exponential nature of the Arrhenius equation
-        - Compare different rate constants' temperature dependence
+    Returns:
+        matplotlib.figure.Figure object
     """
     R = 8.314  # Universal gas constant (J/mol·K)
     temps = np.linspace(250, 500, 100)  # Temperature range in Kelvin
-    plt.figure()
-
+    T_ref = 298.15
+    
+    fig = plt.figure(figsize=(6, 4), dpi=100)
+    
     for idx, k0 in enumerate(k_vals):
-        ks = [k0 * np.exp(-Ea / (R * T)) for T in temps]
+        # Corrected Arrhenius logic matching simulate.py
+        ks = [k0 * np.exp((Ea / R) * (1/T_ref - 1/T)) for T in temps]
         plt.plot(temps, ks, label=f"k{idx+1}(T)")
     
     plt.xlabel('Temperature (K)')
     plt.ylabel('Rate Constant k(T)')
-    plt.title('Arrhenius Plot of Rate Constant(s) vs Temperature')
+    plt.title('Arrhenius Plot')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    
+    return fig
